@@ -41,6 +41,10 @@ const defaults = {
     priceChange: false,
     removed: false
   },
+  health: {
+    statusIntervalHours: 24,
+    repeatErrorAlertMinutes: 60
+  },
   requestDelayMs: 400,
   userAgent:
     'AngryMiaoStockBot/1.0 (personal stock notifier; +https://github.com)',
@@ -61,7 +65,8 @@ function loadConfig() {
     ...defaults,
     ...user,
     watch: { ...defaults.watch, ...(user.watch || {}) },
-    notifyOn: { ...defaults.notifyOn, ...(user.notifyOn || {}) }
+    notifyOn: { ...defaults.notifyOn, ...(user.notifyOn || {}) },
+    health: { ...defaults.health, ...(user.health || {}) }
   };
 }
 

@@ -18,8 +18,12 @@ export async function sendMessage(text) {
   }
 
   const url = `https://api.telegram.org/bot${secrets.botToken}/sendMessage`;
+  const failures = [];
 
   for (const chatId of secrets.chatIds) {
+    let sent = false;
+    let lastError = null;
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const res = await fetch(url, {
@@ -43,14 +47,25 @@ export async function sendMessage(text) {
           const body = await res.text().catch(() => '');
           throw new Error(`Telegram HTTP ${res.status}: ${body}`);
         }
+        sent = true;
         break; // success
       } catch (err) {
+        lastError = err;
         console.error(
           `Telegram send failed for chat ${chatId} (attempt ${attempt}): ${err.message}`
         );
         if (attempt < 3) await sleep(1000 * attempt);
       }
     }
+
+    if (!sent) {
+      failures.push(`chat ${chatId}: ${lastError ? lastError.message : 'unknown error'}`);
+    }
+
     await sleep(400); // gentle pacing between chats
+  }
+
+  if (failures.length) {
+    throw new Error(`Telegram notification failed after retries: ${failures.join(' | ')}`);
   }
 }

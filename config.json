@@ -12,5 +12,9 @@
     "priceChange": false,
     "removed": false
   },
+  "health": {
+    "statusIntervalHours": 24,
+    "repeatErrorAlertMinutes": 60
+  },
   "requestDelayMs": 400
 }
