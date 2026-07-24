@@ -1,6 +1,11 @@
 import { config, secrets } from './config.js';
 import { fetchAllWatched } from './shopify.js';
-import { loadState, saveState, buildState } from './state.js';
+import {
+  loadState,
+  saveState,
+  buildState,
+  isStateCompatible
+} from './state.js';
 import { diffStates } from './diff.js';
 import { formatBatch } from './format.js';
 import { sendMessage } from './telegram.js';
@@ -17,6 +22,17 @@ function filterChanges(changes) {
     removed: on.removed
   };
   return changes.filter((c) => allow[c.type]);
+}
+
+async function initializeBaseline(newState, reason) {
+  saveState(newState);
+  const vars = Object.values(newState.variants);
+  const inStock = vars.filter((v) => v.available).length;
+  const productCount = new Set(vars.map((v) => v.productHandle)).size;
+  console.log(
+    `${reason}: ${productCount} products, ${vars.length} variants, ${inStock} in stock.`
+  );
+  return { productCount, variantCount: vars.length, inStock };
 }
 
 async function runOnce() {
@@ -40,18 +56,29 @@ async function runOnce() {
   const oldState = loadState();
 
   if (!oldState) {
-    saveState(newState);
-    const vars = Object.values(newState.variants);
-    const inStock = vars.filter((v) => v.available).length;
-    const productCount = new Set(vars.map((v) => v.productHandle)).size;
-    console.log(
-      `Baseline established: ${productCount} products, ${vars.length} variants, ${inStock} in stock.`
+    const { productCount, variantCount, inStock } = await initializeBaseline(
+      newState,
+      'Baseline established'
     );
     await sendMessage(
       '\u{1F916} <b>Angry Miao stock bot is live</b>\n' +
-        `Monitoring <b>${productCount}</b> product(s) (${vars.length} variants).\n` +
+        `Monitoring <b>${productCount}</b> product(s) (${variantCount} variants).\n` +
         `${inStock} variant(s) currently in stock.\n` +
         "You'll get a message whenever stock changes."
+    );
+    return { ok: true, changes: 0 };
+  }
+
+  if (!isStateCompatible(oldState, store)) {
+    const { productCount, variantCount, inStock } = await initializeBaseline(
+      newState,
+      'Baseline refreshed after scope/config change'
+    );
+    await sendMessage(
+      '\u21BB <b>Angry Miao stock bot baseline refreshed</b>\n' +
+        `Monitoring <b>${productCount}</b> product(s) (${variantCount} variants).\n` +
+        `${inStock} variant(s) currently in stock.\n` +
+        'The saved state format or watched scope changed, so the bot reset its baseline without sending per-item alerts.'
     );
     return { ok: true, changes: 0 };
   }
@@ -100,12 +127,18 @@ async function main() {
   process.on('SIGTERM', requestStop);
 
   while (!stop) {
+    const startedAt = Date.now();
     try {
       await runOnce();
     } catch (err) {
       console.error(`Cycle error: ${err.message}`);
     }
-    for (let i = 0; i < config.pollIntervalSeconds && !stop; i++) {
+    const elapsedMs = Date.now() - startedAt;
+    const waitSeconds = Math.max(
+      0,
+      Math.ceil((config.pollIntervalSeconds * 1000 - elapsedMs) / 1000)
+    );
+    for (let i = 0; i < waitSeconds && !stop; i++) {
       await sleep(1000);
     }
   }

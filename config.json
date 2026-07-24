@@ -4,7 +4,7 @@
     "collections": ["cyberboard-collection"],
     "allProducts": true
   },
-  "pollIntervalSeconds": 300,
+  "pollIntervalSeconds": 20,
   "notifyOn": {
     "restock": true,
     "soldOut": true,

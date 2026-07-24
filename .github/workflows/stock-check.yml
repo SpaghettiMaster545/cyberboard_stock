@@ -1,10 +1,6 @@
-name: Stock Check
+name: Manual Stock Check
 
 on:
-  schedule:
-    # Every 5 minutes, shifted off the busiest minute boundaries.
-    # GitHub's scheduler is most delay-prone around the top of the hour.
-    - cron: '2-59/5 * * * *'
   workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab
 
 # Never run two checks at the same time (avoids state-file push conflicts).

@@ -1,0 +1,98 @@
+name: Deploy To Oracle
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/deploy-oracle.yml'
+      - 'config.json'
+      - 'package.json'
+      - 'src/**'
+      - 'deploy/oracle/**'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate secrets
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_SSH_PORT: ${{ secrets.ORACLE_SSH_PORT }}
+          ORACLE_APP_DIR: ${{ secrets.ORACLE_APP_DIR }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in ORACLE_HOST ORACLE_USER ORACLE_SSH_KEY TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required secret: ${name}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "ORACLE_SSH_PORT=${ORACLE_SSH_PORT:-22}" >> "$GITHUB_ENV"
+          if [ -n "${ORACLE_APP_DIR:-}" ]; then
+            echo "ORACLE_APP_DIR=${ORACLE_APP_DIR}" >> "$GITHUB_ENV"
+          else
+            echo "ORACLE_APP_DIR=/home/${ORACLE_USER}/angrymiao-stock-bot" >> "$GITHUB_ENV"
+          fi
+
+      - name: Prepare SSH
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle_key
+          chmod 600 ~/.ssh/oracle_key
+          ssh-keyscan -p "$ORACLE_SSH_PORT" -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload app bundle
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          cat > .deploy.env <<EOF
+          TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+          EOF
+          ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" "mkdir -p '$ORACLE_APP_DIR'"
+          tar czf - package.json config.json src deploy/oracle |
+            ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" "tar xzf - -C '$ORACLE_APP_DIR'"
+          scp -i ~/.ssh/oracle_key -P "$ORACLE_SSH_PORT" .deploy.env "$ORACLE_USER@$ORACLE_HOST:$ORACLE_APP_DIR/.env"
+          rm -f .deploy.env
+
+      - name: Install and restart service
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" \
+            "cd '$ORACLE_APP_DIR' && chmod +x deploy/oracle/install.sh && APP_DIR='$ORACLE_APP_DIR' DEPLOY_USER='$ORACLE_USER' SERVICE_NAME='angrymiao-stock-bot' bash deploy/oracle/install.sh"
+
+      - name: Show recent logs
+        if: ${{ always() }}
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" \
+            "sudo journalctl -u angrymiao-stock-bot -n 40 --no-pager || true"

@@ -30,6 +30,21 @@ export function saveState(state) {
   writeFileSync(p, JSON.stringify(state, null, 2) + '\n', 'utf8');
 }
 
+function scopeMeta(store) {
+  return {
+    schemaVersion: 2,
+    store,
+    allProducts: !!config.watch.allProducts,
+    collections: [...(config.watch.collections || [])].sort()
+  };
+}
+
+export function isStateCompatible(savedState, store) {
+  if (!savedState || !savedState.meta) return false;
+  const current = scopeMeta(store);
+  return JSON.stringify(savedState.meta) === JSON.stringify(current);
+}
+
 /**
  * Build a normalized, diff-friendly state from raw Shopify products.
  * Keyed by variant id. Intentionally contains no timestamps so the file only
@@ -49,5 +64,8 @@ export function buildState(products, store) {
       };
     }
   }
-  return { variants };
+  return {
+    meta: scopeMeta(store),
+    variants
+  };
 }
