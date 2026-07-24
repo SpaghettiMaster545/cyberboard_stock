@@ -2,7 +2,7 @@
   "store": "https://store.angrymiao.com",
   "watch": {
     "collections": ["cyberboard-collection"],
-    "allProducts": false
+    "allProducts": true
   },
   "pollIntervalSeconds": 300,
   "notifyOn": {
