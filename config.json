@@ -1,0 +1,16 @@
+{
+  "store": "https://store.angrymiao.com",
+  "watch": {
+    "collections": ["cyberboard-collection"],
+    "allProducts": false
+  },
+  "pollIntervalSeconds": 300,
+  "notifyOn": {
+    "restock": true,
+    "soldOut": true,
+    "newProduct": true,
+    "priceChange": false,
+    "removed": false
+  },
+  "requestDelayMs": 400
+}

@@ -1,0 +1,18 @@
+{
+  "name": "angrymiao-stock-bot",
+  "version": "1.0.0",
+  "description": "Stock checker bot for the Angry Miao store (CYBERBOARD & more) with Telegram notifications.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "once": "node src/index.js --once",
+    "start": "node src/index.js --watch",
+    "watch": "node src/index.js --watch",
+    "chat-id": "node scripts/get-chat-id.js",
+    "test-telegram": "node scripts/test-telegram.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
