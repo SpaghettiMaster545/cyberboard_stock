@@ -2,9 +2,9 @@ name: Stock Check
 
 on:
   schedule:
-    # Every 5 minutes. GitHub may delay or batch scheduled runs under load,
-    # so real-world spacing is often 5-15 minutes. That is normal on the free tier.
-    - cron: '*/5 * * * *'
+    # Every 5 minutes, shifted off the busiest minute boundaries.
+    # GitHub's scheduler is most delay-prone around the top of the hour.
+    - cron: '2-59/5 * * * *'
   workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab
 
 # Never run two checks at the same time (avoids state-file push conflicts).
