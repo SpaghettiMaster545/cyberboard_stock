@@ -33,7 +33,7 @@ loadEnv();
 const defaults = {
   store: 'https://store.angrymiao.com',
   watch: { collections: ['cyberboard-collection'], allProducts: false },
-  pollIntervalSeconds: 20,
+  pollIntervalSeconds: 50,
   notifyOn: {
     restock: true,
     soldOut: true,
