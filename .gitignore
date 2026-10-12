@@ -8,4 +8,6 @@ node_modules/
 # Local runtime state (force-added by the GitHub Actions workflow)
 data/state.json
 data/runtime.json
+data/settings.json
+data/*.tmp
 data/heartbeat

@@ -1,10 +1,8 @@
 {
-  "store": "https://store.angrymiao.com",
-  "watch": {
-    "collections": ["cyberboard-collection"],
-    "allProducts": true
-  },
-  "pollIntervalSeconds": 20,
+  "language": "pl",
+  "timezone": "Europe/Warsaw",
+  "defaultIntervalSeconds": 60,
+  "steamCountry": "PL",
   "notifyOn": {
     "restock": true,
     "soldOut": true,
@@ -12,9 +10,63 @@
     "priceChange": false,
     "removed": false
   },
+  "silentTypes": [
+    "soldOut",
+    "priceChange",
+    "removed"
+  ],
+  "quietHours": {
+    "enabled": false,
+    "from": 23,
+    "to": 8
+  },
   "health": {
+    "dailyReport": true,
     "statusIntervalHours": 24,
+    "alertAfterFailures": 3,
+    "alertAfterMinutes": 5,
     "repeatErrorAlertMinutes": 60
   },
-  "requestDelayMs": 400
+  "requestDelayMs": 400,
+  "watches": [
+    {
+      "id": "steam-frame-ergo",
+      "type": "steam",
+      "name": "Steam Frame – Ergonomic Kit",
+      "url": "https://store.steampowered.com/hardware/steamframe",
+      "country": "PL",
+      "packages": [
+        1727363
+      ],
+      "intervalSeconds": 45,
+      "note": "Ergonomic Kit można kupić tylko razem ze Steam Frame w koszyku (albo gdy masz już Frame na koncie Steam)."
+    },
+    {
+      "id": "steam-frame",
+      "type": "steam",
+      "name": "Steam Frame (gogle i akcesoria)",
+      "url": "https://store.steampowered.com/hardware/steamframe",
+      "country": "PL",
+      "packages": [
+        1629484,
+        1629486,
+        1727369,
+        1727366
+      ],
+      "intervalSeconds": 60,
+      "enabled": false
+    },
+    {
+      "id": "angrymiao",
+      "type": "shopify",
+      "name": "Angry Miao",
+      "store": "https://store.angrymiao.com",
+      "allProducts": true,
+      "collections": [
+        "cyberboard-collection"
+      ],
+      "currency": "USD",
+      "intervalSeconds": 60
+    }
+  ]
 }

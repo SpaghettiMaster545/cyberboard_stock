@@ -1,7 +1,7 @@
 // Sends a test message so you can confirm Telegram is configured correctly.
 //   npm run test-telegram
 import { secrets } from '../src/config.js';
-import { sendMessage } from '../src/telegram.js';
+import { TelegramApi } from '../src/telegram/api.js';
 
 async function main() {
   if (!secrets.botToken || secrets.chatIds.length === 0) {
@@ -10,13 +10,18 @@ async function main() {
     );
     process.exit(1);
   }
-  await sendMessage(
-    '\u2705 <b>Test message</b>\nYour Angry Miao stock bot can reach this chat.'
-  );
+  const api = new TelegramApi(secrets.botToken, { baseUrl: secrets.telegramApiBase });
+  for (const chatId of secrets.chatIds) {
+    await api.call('sendMessage', {
+      chat_id: chatId,
+      text: '✅ <b>Test message</b>\nYour stock bot can reach this chat. Send /menu to open the bot menu.',
+      parse_mode: 'HTML'
+    });
+  }
   console.log(`Sent a test message to: ${secrets.chatIds.join(', ')}`);
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error(err.message);
   process.exit(1);
 });

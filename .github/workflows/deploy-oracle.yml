@@ -10,17 +10,31 @@ on:
       - 'config.json'
       - 'package.json'
       - 'src/**'
+      - 'scripts/**'
       - 'deploy/oracle/**'
 
 permissions:
   contents: read
+
+# Never run two deploys at once.
+concurrency:
+  group: deploy-oracle
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Run tests
+        run: npm test
 
       - name: Validate secrets
         env:
@@ -74,7 +88,7 @@ jobs:
           TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
           EOF
           ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" "mkdir -p '$ORACLE_APP_DIR'"
-          tar czf - package.json config.json src deploy/oracle |
+          tar czf - package.json config.json src scripts deploy/oracle |
             ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" "tar xzf - -C '$ORACLE_APP_DIR'"
           scp -i ~/.ssh/oracle_key -P "$ORACLE_SSH_PORT" .deploy.env "$ORACLE_USER@$ORACLE_HOST:$ORACLE_APP_DIR/.env"
           rm -f .deploy.env
@@ -88,6 +102,42 @@ jobs:
           ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" \
             "cd '$ORACLE_APP_DIR' && chmod +x deploy/oracle/install.sh && APP_DIR='$ORACLE_APP_DIR' DEPLOY_USER='$ORACLE_USER' SERVICE_NAME='angrymiao-stock-bot' bash deploy/oracle/install.sh"
 
+      - name: Smoke test on the server
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          set -euo pipefail
+          # One pass over every watched store + a Telegram getMe, without touching saved state.
+          ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" \
+            "cd '$ORACLE_APP_DIR' && node --version && timeout 120 node src/index.js --self-test"
+
+      - name: Verify the service is up
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" 'bash -s' <<'EOF'
+          set -euo pipefail
+          unit=angrymiao-stock-bot
+          since="$(systemctl show "$unit" -p ActiveEnterTimestamp --value)"
+          logs() { sudo journalctl -u "$unit" --since "$since" --no-pager -o cat; }
+          # Wait (up to ~60s) for the Telegram bot and the first successful stock check.
+          for i in $(seq 1 30); do
+            out="$(logs)"
+            if grep -q 'ready - listening for commands' <<<"$out" && grep -q '\] ok: ' <<<"$out"; then break; fi
+            sleep 2
+          done
+          sleep 10
+          out="$(logs)"
+          systemctl is-active --quiet "$unit" || { echo "::error::service is not running"; exit 1; }
+          echo "Service active since: $since (restarts: $(systemctl show "$unit" -p NRestarts --value))"
+          grep -q 'ready - listening for commands' <<<"$out" || { echo "::error::Telegram bot did not report ready"; exit 1; }
+          grep -q '\] ok: ' <<<"$out" || { echo "::error::no successful stock check since the restart"; exit 1; }
+          echo "Telegram bot connected and stock checks are succeeding."
+          EOF
+
       - name: Show recent logs
         if: ${{ always() }}
         env:
@@ -95,4 +145,4 @@ jobs:
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
         run: |
           ssh -i ~/.ssh/oracle_key -p "$ORACLE_SSH_PORT" "$ORACLE_USER@$ORACLE_HOST" \
-            "sudo journalctl -u angrymiao-stock-bot -n 40 --no-pager || true"
+            "sudo journalctl -u angrymiao-stock-bot -n 60 --no-pager || true"

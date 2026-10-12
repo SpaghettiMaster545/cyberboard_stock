@@ -64,7 +64,7 @@ NODE_BIN="$(command -v node)"
 
 sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<EOF
 [Unit]
-Description=Angry Miao stock bot
+Description=Stock bot (Shopify, Steam, web pages) with Telegram
 After=network-online.target
 Wants=network-online.target
 

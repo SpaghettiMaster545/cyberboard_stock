@@ -4,6 +4,9 @@
 //   1. Open Telegram and send any message (e.g. "hi") to your bot.
 //   2. Run:  npm run chat-id
 //   3. Copy the chat_id into .env (TELEGRAM_CHAT_ID) or a GitHub secret.
+//
+// Only works while the bot itself is NOT running (both would poll getUpdates).
+// If the bot is already running, simply send it /id instead.
 import { secrets } from '../src/config.js';
 
 async function main() {
@@ -13,11 +16,15 @@ async function main() {
   }
 
   const res = await fetch(
-    `https://api.telegram.org/bot${secrets.botToken}/getUpdates`
+    `${secrets.telegramApiBase}/bot${secrets.botToken}/getUpdates`
   );
   const data = await res.json();
 
   if (!data.ok) {
+    if (data.error_code === 409) {
+      console.error('The bot is already running and receiving updates. Send /id to the bot instead.');
+      process.exit(1);
+    }
     console.error('Telegram error:', JSON.stringify(data));
     process.exit(1);
   }
