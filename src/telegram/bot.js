@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { t } from '../i18n.js';
 import { normalizeWatch, NOTIFY_TYPES } from '../config.js';
 import { detectWatch, scopeFingerprint, DetectError } from '../sources/index.js';
+import { newTopic } from '../push.js';
 import { esc, slugify, formatDuration } from '../util.js';
 import { isNotModified } from './api.js';
 import {
@@ -17,12 +18,13 @@ import {
   settingsView,
   muteView,
   helpView,
+  pushView,
   searchView,
   mutedText,
   nextInterval
 } from './views.js';
 
-const COMMANDS = ['menu', 'stock', 'check', 'watches', 'search', 'history', 'status', 'settings', 'mute', 'unmute', 'add', 'help'];
+const COMMANDS = ['menu', 'stock', 'check', 'watches', 'search', 'history', 'status', 'settings', 'push', 'mute', 'unmute', 'add', 'help'];
 const URL_RE = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i;
 const STEAM_RE = /^steam[:\s]+\d+/i;
 
@@ -259,6 +261,8 @@ export class TelegramBot {
         return this.send(chatId, statusView(ctx, this.monitor));
       case 'settings':
         return this.send(chatId, settingsView(ctx));
+      case 'push':
+        return this.send(chatId, pushView(ctx));
       case 'mute': {
         if (!args) return this.send(chatId, muteView(ctx));
         if (/^(off|0|stop)$/i.test(args)) return this.onCommand(chatId, 'unmute', '');
@@ -411,6 +415,62 @@ export class TelegramBot {
         this.registerCommands().catch((err) => console.warn(`setMyCommands failed: ${err.message}`));
         view = settingsView(ctx);
         break;
+      case 'push':
+        view = pushView(ctx);
+        break;
+      case 'pe': {
+        const s = ctx.push.settings;
+        if (!ctx.push.topic) s.topic = newTopic();
+        s.enabled = true;
+        ctx.store.saveSettings();
+        toast = t(lang, 'push_enabled_toast');
+        view = pushView(ctx);
+        break;
+      }
+      case 'pd':
+        ctx.push.settings.enabled = false;
+        ctx.store.saveSettings();
+        toast = t(lang, 'push_disabled_toast');
+        view = pushView(ctx);
+        break;
+      case 'pt': {
+        await this.answer(cq.id, t(lang, 'btn_push_test'));
+        let notice;
+        try {
+          await ctx.push.sendTest();
+          notice = t(lang, 'push_test_sent');
+        } catch (err) {
+          notice = t(lang, 'push_test_failed', { error: esc(err.message) });
+        }
+        return this.edit(chatId, messageId, pushView(ctx, notice));
+      }
+      case 'pn': {
+        const types = new Set(ctx.push.types);
+        if (types.has('new')) types.delete('new');
+        else types.add('new');
+        ctx.push.settings.types = ['restock', 'new'].filter((x) => types.has(x));
+        ctx.store.saveSettings();
+        view = pushView(ctx);
+        break;
+      }
+      case 'pr':
+        if (!ctx.push.topicFromEnv) {
+          ctx.push.settings.topic = newTopic();
+          ctx.store.saveSettings();
+        }
+        view = pushView(ctx, t(lang, 'push_rotated'));
+        break;
+      case 'wh': {
+        const w = ctx.getWatch(a1);
+        if (w) {
+          const on = !ctx.pushEnabledFor(w);
+          this._override(a1).push = on;
+          ctx.store.saveSettings();
+          toast = t(lang, 'watch_push_toast', { name: w.name, state: t(lang, on ? 'on' : 'off') });
+        }
+        view = watchView(ctx, a1);
+        break;
+      }
       case 'mute':
         view = muteView(ctx);
         break;

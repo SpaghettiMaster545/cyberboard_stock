@@ -49,6 +49,7 @@ Obserwacje: 2 aktywne z 3 · dostępnych pozycji: 293
 | `/history` | Recent stock changes |
 | `/status` | Health: last/next check per watch, errors, uptime, memory |
 | `/settings` | Which alerts you get (restock / sold out / new / price / removed), quiet hours, daily report, language (PL/EN) |
+| `/push` | Phone push notifications via the ntfy app (see below) |
 | `/mute [2h]`, `/unmute` | Alerts keep coming, but silently |
 | `/add <link>` | Watch a new Shopify product / collection / store or Steam hardware page, or `steam <package ids> [country]` |
 | `/id` | Show the chat id (works for anyone — handy for adding another chat) |
@@ -66,6 +67,21 @@ Alerts:
 - On every deploy with new code the bot sends a short "started" message, plus a daily report.
 
 Only chats listed in `TELEGRAM_CHAT_ID` can use the bot; everyone else just gets their chat id.
+
+### Phone push notifications (ntfy)
+
+For a separate, loud notification outside the busy Telegram chat, the bot can also push
+restocks to the free [ntfy](https://ntfy.sh) app (Android / iOS, no account):
+
+1. Send `/push` to the bot and tap **Enable push** — it generates a private topic.
+2. Install **ntfy** on the phone, tap **+**, enter that topic.
+3. Tap **Send test**.
+
+Restocks are pushed with max priority, the product, price, the watch note and an
+*Open store* button; optionally new products too. Push can be turned off per watch (📱 button
+in the watch view). It is independent of Telegram: a push still goes out when Telegram is down,
+and the same change is never pushed twice. Instead of `/push` you can set `NTFY_TOPIC`
+(plus optional `NTFY_SERVER` for a self-hosted server and `NTFY_TOKEN`) in the environment.
 
 ---
 
@@ -224,6 +240,7 @@ src/
   context.js          shared state: config + Telegram-made settings
   monitor.js          scheduling, diffing, alerts, health, backoff
   store.js            data/state.json, runtime.json, settings.json (+ legacy migration)
+  push.js             phone push via ntfy
   diff.js format.js i18n.js util.js
   sources/            shopify.js, steam.js, page.js, index.js (registry + /add link detection)
   telegram/           api.js (Bot API client), notifier.js, bot.js (commands), views.js (menus)

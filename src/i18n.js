@@ -187,6 +187,7 @@ const pl = {
     '/status — zdrowie bota\n' +
     '/settings — rodzaje powiadomień, cisza nocna, język\n' +
     '/mute [2h] · /unmute — wyciszenie\n' +
+    '/push — powiadomienia push na telefon (ntfy)\n' +
     '/add &lt;link&gt; — dodaj obserwację\n' +
     '/id — pokaż id czatu\n\n' +
     'Wskazówka: wyślij samą nazwę produktu, żeby go wyszukać, albo link, żeby go dodać.',
@@ -207,7 +208,44 @@ const pl = {
   cmd_mute: 'Wycisz powiadomienia',
   cmd_unmute: 'Włącz dźwięk',
   cmd_add: 'Dodaj obserwację (link)',
-  cmd_help: 'Pomoc'
+  cmd_help: 'Pomoc',
+  // push (ntfy)
+  cmd_push: 'Powiadomienia push na telefon',
+  btn_push: '📱 Push na telefon: {state}',
+  push_title: '📱 <b>Powiadomienia push (ntfy)</b>\nOsobne, głośne powiadomienie na telefonie, gdy coś wróci do sprzedaży — niezależnie od Telegrama.',
+  push_status_on: 'Status: ✅ włączone',
+  push_status_off: 'Status: ⏹ wyłączone',
+  push_off_hint: 'Kliknij „Włącz push”, a wygeneruję prywatny temat dla Twojego telefonu.',
+  push_topic: 'Temat: <code>{topic}</code>',
+  push_howto:
+    'Jak podłączyć telefon (raz):\n' +
+    '1. Zainstaluj aplikację <b>ntfy</b> (Google Play / App Store / F-Droid).\n' +
+    '2. W aplikacji kliknij <b>+</b>, wpisz temat <code>{topic}</code> i zapisz.\n' +
+    '3. Kliknij „📲 Wyślij test” poniżej.',
+  push_types: 'Wysyłam: {types}. Push dla pojedynczej obserwacji wyłączysz w jej widoku (przycisk 📱).',
+  push_type_restock: 'powroty do sprzedaży',
+  push_type_new: 'nowe produkty',
+  push_secret: '<i>Temat działa jak hasło — nie udostępniaj go.</i>',
+  btn_push_enable: '✅ Włącz push',
+  btn_push_disable: '⏹ Wyłącz',
+  btn_push_test: '📲 Wyślij test',
+  btn_push_new: '🆕 Też nowe produkty: {state}',
+  btn_push_rotate: '🔄 Nowy temat',
+  btn_push_open: '🌐 Otwórz temat',
+  btn_settings_back: '⬅️ Ustawienia',
+  push_test_sent: '📲 Wysłałem test — sprawdź telefon.',
+  push_test_failed: '⚠️ Nie udało się wysłać: <code>{error}</code>',
+  push_enabled_toast: '✅ Push włączony',
+  push_disabled_toast: '⏹ Push wyłączony',
+  push_rotated: '🔄 Nowy temat — zasubskrybuj go ponownie w aplikacji ntfy (stary przestał działać).',
+  push_open: 'Otwórz sklep',
+  push_restock: 'Dostępne',
+  push_new: 'Nowość',
+  push_many: 'Zmiany w {name} ({count})',
+  push_test_title: 'Stock Bot: test',
+  push_test_body: 'Działa! Tutaj dostaniesz powiadomienia o powrotach do sprzedaży.',
+  btn_watch_push: '📱 Push: {state}',
+  watch_push_toast: '📱 Push dla {name}: {state}'
 };
 
 const en = {
@@ -380,6 +418,7 @@ const en = {
     '/status — bot health\n' +
     '/settings — alert types, quiet hours, language\n' +
     '/mute [2h] · /unmute — mute\n' +
+    '/push — phone push notifications (ntfy)\n' +
     '/add &lt;link&gt; — add a watch\n' +
     '/id — show this chat id\n\n' +
     'Tip: send a product name to search, or a link to add it.',
@@ -399,7 +438,43 @@ const en = {
   cmd_mute: 'Mute notifications',
   cmd_unmute: 'Unmute',
   cmd_add: 'Add a watch (link)',
-  cmd_help: 'Help'
+  cmd_help: 'Help',
+  cmd_push: 'Phone push notifications',
+  btn_push: '📱 Phone push: {state}',
+  push_title: '📱 <b>Push notifications (ntfy)</b>\nA separate, loud notification on your phone when something is back in stock — independent of Telegram.',
+  push_status_on: 'Status: ✅ on',
+  push_status_off: 'Status: ⏹ off',
+  push_off_hint: 'Tap "Enable push" and I will generate a private topic for your phone.',
+  push_topic: 'Topic: <code>{topic}</code>',
+  push_howto:
+    'Connect your phone (once):\n' +
+    '1. Install the <b>ntfy</b> app (Google Play / App Store / F-Droid).\n' +
+    '2. In the app tap <b>+</b>, enter the topic <code>{topic}</code> and save.\n' +
+    '3. Tap "📲 Send test" below.',
+  push_types: 'Pushing: {types}. Turn push off for a single watch in its view (📱 button).',
+  push_type_restock: 'restocks',
+  push_type_new: 'new products',
+  push_secret: '<i>The topic works like a password — keep it private.</i>',
+  btn_push_enable: '✅ Enable push',
+  btn_push_disable: '⏹ Disable',
+  btn_push_test: '📲 Send test',
+  btn_push_new: '🆕 New products too: {state}',
+  btn_push_rotate: '🔄 New topic',
+  btn_push_open: '🌐 Open topic',
+  btn_settings_back: '⬅️ Settings',
+  push_test_sent: '📲 Test sent — check your phone.',
+  push_test_failed: '⚠️ Could not send it: <code>{error}</code>',
+  push_enabled_toast: '✅ Push enabled',
+  push_disabled_toast: '⏹ Push disabled',
+  push_rotated: '🔄 New topic — subscribe to it again in the ntfy app (the old one stopped working).',
+  push_open: 'Open store',
+  push_restock: 'In stock',
+  push_new: 'New',
+  push_many: '{name}: {count} updates',
+  push_test_title: 'Stock Bot: test',
+  push_test_body: 'It works! Restock alerts will show up here.',
+  btn_watch_push: '📱 Push: {state}',
+  watch_push_toast: '📱 Push for {name}: {state}'
 };
 
 const dictionaries = { pl, en };

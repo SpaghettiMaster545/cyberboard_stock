@@ -34,9 +34,10 @@ function itemRecord(i) {
  * same queue, so a watch is never checked twice in parallel.
  */
 export class Monitor {
-  constructor(ctx, notifier) {
+  constructor(ctx, notifier, push = null) {
     this.ctx = ctx;
     this.notifier = notifier;
+    this.push = push;
     this.nextDue = new Map();
     this.queue = Promise.resolve();
     this.stopped = false;
@@ -123,6 +124,10 @@ export class Monitor {
     const changes = diffItems(saved.items, items);
     const notifyOn = ctx.notifyOnFor(watch);
     const toSend = changes.filter((c) => notifyOn[CHANGE_SETTING[c.type]]);
+
+    // Phone push first: it is best effort and de-duplicated, so a Telegram
+    // outage (which makes the change be re-detected) never blocks it.
+    if (this.push && changes.length) await this.push.notifyChanges(watch, changes);
 
     if (toSend.length) {
       // If Telegram is down this throws, the state is not saved and the same

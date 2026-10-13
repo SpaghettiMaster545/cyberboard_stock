@@ -60,6 +60,13 @@ export function createContext({ config, secrets, store, fetchImpl, version = 'de
       return { ...config.notifyOn, ...store.settings.notifyOn };
     },
 
+    /** Phone push for this watch: Telegram toggle, then the watch's `push` flag (default on). */
+    pushEnabledFor(watch) {
+      const o = store.settings.watches[watch.id] || {};
+      if (o.push !== undefined) return o.push;
+      return watch.push !== false;
+    },
+
     quietHours() {
       return { ...config.quietHours, ...(store.settings.quietHours || {}) };
     },

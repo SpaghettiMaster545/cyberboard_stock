@@ -8,6 +8,7 @@ import { Monitor } from './monitor.js';
 import { Notifier } from './telegram/notifier.js';
 import { TelegramApi } from './telegram/api.js';
 import { TelegramBot } from './telegram/bot.js';
+import { PushNotifier } from './push.js';
 import { fetchItems, scopeFingerprint } from './sources/index.js';
 import { summarizeItems } from './diff.js';
 import { formatStartup, itemLine } from './format.js';
@@ -41,8 +42,10 @@ function setup({ readOnly = false } = {}) {
   }
   const api = secrets.botToken ? new TelegramApi(secrets.botToken, { baseUrl: secrets.telegramApiBase }) : null;
   const notifier = new Notifier(ctx, api);
-  const monitor = new Monitor(ctx, notifier);
-  return { version, store, ctx, api, notifier, monitor };
+  const push = new PushNotifier(ctx);
+  ctx.push = push;
+  const monitor = new Monitor(ctx, notifier, push);
+  return { version, store, ctx, api, notifier, push, monitor };
 }
 
 function describeWatches(ctx) {
@@ -62,7 +65,7 @@ async function runOnce() {
 
 /** One pass over every source + a Telegram connectivity check, without touching saved state. */
 async function selfTest() {
-  const { version, ctx, api, notifier } = setup({ readOnly: true });
+  const { version, ctx, api, notifier, push } = setup({ readOnly: true });
   let failed = false;
   console.log(`Stock bot self-test v${version}`);
   console.log(`Language: ${ctx.lang} · timezone: ${ctx.timezone}`);
@@ -110,6 +113,20 @@ async function selfTest() {
       console.error(`FAIL telegram: ${err.message}`);
       failed = true;
     }
+  }
+  if (push.enabled) {
+    console.log(`OK   push: ntfy topic set (${push.topicFromEnv ? 'NTFY_TOPIC' : 'from Telegram /push'}), types: ${push.types.join(', ')}`);
+    if (process.argv.includes('--send')) {
+      try {
+        await push.sendTest();
+        console.log('OK   push: test notification sent');
+      } catch (err) {
+        console.error(`FAIL push: ${err.message}`);
+        failed = true;
+      }
+    }
+  } else {
+    console.log('INFO push: off (enable with /push in Telegram)');
   }
   process.exitCode = failed ? 1 : 0;
 }

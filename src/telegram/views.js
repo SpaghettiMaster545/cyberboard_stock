@@ -242,6 +242,9 @@ export function watchView(ctx, id, { page = 0, filter = null, notice = null } = 
     w.enabled ? btn(t(lang, 'btn_pause'), `wp:${id}`) : btn(t(lang, 'btn_resume'), `wp:${id}`)
   ]);
   const row = [btn(t(lang, 'btn_interval', { interval: formatDuration(w.intervalSeconds * 1000, lang) }), `wn:${id}`)];
+  if (ctx.push && ctx.push.enabled) {
+    row.push(btn(t(lang, 'btn_watch_push', { state: t(lang, ctx.pushEnabledFor(w) ? 'on' : 'off') }), `wh:${id}`));
+  }
   if (w.custom) row.push(btn(t(lang, 'btn_remove'), `wr:${id}`));
   keyboard.push(row);
   const nav = [btn(t(lang, 'back'), 'stock')];
@@ -409,6 +412,7 @@ export function settingsView(ctx, notice = null) {
   keyboard.push([btn(t(lang, 'btn_quiet', { from: q.from, to: q.to, state: t(lang, q.enabled ? 'on' : 'off') }), 'sq')]);
   keyboard.push([btn(t(lang, 'btn_report', { state: t(lang, ctx.dailyReport() ? 'on' : 'off') }), 'sd')]);
   keyboard.push([btn(t(lang, 'btn_language'), 'sl')]);
+  if (ctx.push) keyboard.push([btn(t(lang, 'btn_push', { state: t(lang, ctx.push.enabled ? 'on' : 'off') }), 'push')]);
   keyboard.push([btn(t(lang, 'menu'), 'menu')]);
   return {
     text: withNotice(notice, `${t(lang, 'settings_title')}\n${t(lang, 'settings_body')}\n\n<i>${t(lang, 'quiet_hint')}</i>`),
@@ -429,6 +433,36 @@ export function muteView(ctx) {
     text: t(lang, 'mute_title') + (muted ? `\n\n${t(lang, 'main_muted', { until: muted })}` : ''),
     keyboard
   };
+}
+
+export function pushView(ctx, notice = null) {
+  const lang = ctx.lang;
+  const push = ctx.push;
+  const lines = [t(lang, 'push_title'), ''];
+  const keyboard = [];
+  if (!push.enabled) {
+    lines.push(t(lang, 'push_status_off'), t(lang, 'push_off_hint'));
+    keyboard.push([btn(t(lang, 'btn_push_enable'), 'pe')]);
+  } else {
+    const types = push.types.map((type) => t(lang, `push_type_${type}`)).join(', ');
+    lines.push(
+      t(lang, 'push_status_on'),
+      t(lang, 'push_topic', { topic: esc(push.topic) }),
+      '',
+      t(lang, 'push_howto', { topic: esc(push.topic) }),
+      '',
+      t(lang, 'push_types', { types }),
+      t(lang, 'push_secret')
+    );
+    keyboard.push([btn(t(lang, 'btn_push_test'), 'pt'), btn(t(lang, 'btn_push_disable'), 'pd')]);
+    keyboard.push([btn(t(lang, 'btn_push_new', { state: t(lang, push.types.includes('new') ? 'on' : 'off') }), 'pn')]);
+    const row = [];
+    if (!push.topicFromEnv) row.push(btn(t(lang, 'btn_push_rotate'), 'pr'));
+    if (/^https:\/\//.test(push.subscribeUrl)) row.push(urlBtn(t(lang, 'btn_push_open'), push.subscribeUrl));
+    if (row.length) keyboard.push(row);
+  }
+  keyboard.push([btn(t(lang, 'btn_settings_back'), 'set'), btn(t(lang, 'menu'), 'menu')]);
+  return { text: withNotice(notice, lines.join('\n')), keyboard };
 }
 
 export function helpView(ctx) {

@@ -7,12 +7,14 @@ import { Monitor } from '../src/monitor.js';
 import { Notifier } from '../src/telegram/notifier.js';
 import { TelegramApi } from '../src/telegram/api.js';
 import { TelegramBot, parseDuration } from '../src/telegram/bot.js';
+import { PushNotifier } from '../src/push.js';
 
 const CHAT = 111;
 let tg;
 let bot;
 let ctx;
 let monitor;
+let fetchRef;
 const stock = { 1727363: false, 1727366: true };
 
 before(async () => {
@@ -31,7 +33,8 @@ before(async () => {
       const names = { 1727363: 'Steam Frame Ergonomic Accessories Kit', 1727366: 'Steam Frame Accessory Replacement Kit' };
       return { [id]: { success: true, data: { name: names[id] || `Pkg ${id}`, price: { currency: 'PLN', final: 27900 } } } };
     }],
-    [/example\.org/, () => new Response('nope', { status: 404 })]
+    [/example\.org/, () => new Response('nope', { status: 404 })],
+    [/^https:\/\/ntfy\.sh\/$/, () => ({ id: 'n1' })]
   ]);
   const config = makeConfig({
     watches: [{ id: 'ergo', type: 'steam', name: 'Steam Frame – Ergonomic Kit', packages: [1727363], url: 'https://store.steampowered.com/hardware/steamframe' }]
@@ -40,7 +43,9 @@ before(async () => {
   const secrets = { botToken: 'T', chatIds: [String(CHAT)], telegramApiBase: tg.base };
   ctx = createContext({ config, secrets, store, fetchImpl: fetch, version: '2.0.0+test' });
   const api = new TelegramApi('T', { baseUrl: tg.base });
-  monitor = new Monitor(ctx, new Notifier(ctx, api));
+  ctx.push = new PushNotifier(ctx);
+  fetchRef = fetch;
+  monitor = new Monitor(ctx, new Notifier(ctx, api), ctx.push);
   bot = new TelegramBot(ctx, api, monitor);
   await bot.start();
 });
@@ -211,4 +216,44 @@ test('status and history views render', async () => {
   tg.message(CHAT, '/history');
   const history = await tg.waitFor(sendTo(CHAT), { from });
   assert.match(history.params.text, /Ostatnie zmiany[\s\S]*🟢 <a href=[^>]+>Steam Frame Ergonomic Accessories Kit/);
+});
+
+test('/push: enable, send a test, per-watch toggle, new topic', async () => {
+  let from = tg.calls.length;
+  tg.message(CHAT, '/push');
+  const off = await tg.waitFor(sendTo(CHAT), { from });
+  assert.match(off.params.text, /Powiadomienia push \(ntfy\)[\s\S]*wyłączone/);
+  assert.deepEqual(callbacks(off.params.reply_markup.inline_keyboard), ['pe', 'set', 'menu']);
+
+  from = tg.calls.length;
+  tg.callback(CHAT, 'pe', 70);
+  const on = await tg.waitFor((c) => c.method === 'editMessageText', { from });
+  const topic = ctx.store.settings.push.topic;
+  assert.match(topic, /^stockbot-[0-9a-f]{16}$/);
+  assert.match(on.params.text, new RegExp(`Temat: <code>${topic}</code>[\\s\\S]*aplikację <b>ntfy</b>`));
+  assert.ok(callbacks(on.params.reply_markup.inline_keyboard).includes(`https://ntfy.sh/${topic}`));
+
+  from = tg.calls.length;
+  tg.callback(CHAT, 'pt', 70);
+  await tg.waitFor((c) => c.method === 'editMessageText' && /Wysłałem test/.test(c.params.text), { from });
+  const test = fetchRef.requests.filter((r) => r.url === 'https://ntfy.sh/').at(-1);
+  assert.deepEqual([test.body.topic, test.body.title], [topic, 'Stock Bot: test']);
+
+  from = tg.calls.length;
+  tg.callback(CHAT, 'w:ergo', 71);
+  const view = await tg.waitFor((c) => c.method === 'editMessageText', { from });
+  assert.ok(callbacks(view.params.reply_markup.inline_keyboard).includes('wh:ergo'));
+  tg.callback(CHAT, 'wh:ergo', 71);
+  await tg.waitFor((c) => c.method === 'answerCallbackQuery' && /Push dla Steam Frame – Ergonomic Kit: wył/.test(c.params.text || ''), { from });
+  assert.equal(ctx.pushEnabledFor(ctx.getWatch('ergo')), false);
+
+  from = tg.calls.length;
+  tg.callback(CHAT, 'pr', 70);
+  await tg.waitFor((c) => c.method === 'editMessageText' && /Nowy temat/.test(c.params.text), { from });
+  assert.notEqual(ctx.store.settings.push.topic, topic);
+
+  from = tg.calls.length;
+  tg.callback(CHAT, 'set', 72);
+  const settings = await tg.waitFor((c) => c.method === 'editMessageText', { from });
+  assert.ok(settings.params.reply_markup.inline_keyboard.flat().some((b) => b.callback_data === 'push' && /wł\./.test(b.text)));
 });

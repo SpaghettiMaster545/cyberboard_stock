@@ -187,5 +187,9 @@ export const secrets = {
     .map((s) => s.trim())
     .filter(Boolean),
   // Lets tests point the bot at a fake Telegram server.
-  telegramApiBase: (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '')
+  telegramApiBase: (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/+$/, ''),
+  // Optional: fixed ntfy push topic/server/token (otherwise /push in Telegram generates a topic).
+  ntfyTopic: (process.env.NTFY_TOPIC || '').trim(),
+  ntfyServer: (process.env.NTFY_SERVER || '').trim(),
+  ntfyToken: (process.env.NTFY_TOKEN || '').trim()
 };

@@ -7,6 +7,7 @@ import { Store } from '../../src/store.js';
 import { createContext } from '../../src/context.js';
 import { Notifier } from '../../src/telegram/notifier.js';
 import { Monitor } from '../../src/monitor.js';
+import { PushNotifier } from '../../src/push.js';
 
 export function tempDir() {
   return mkdtempSync(join(tmpdir(), 'stockbot-test-'));
@@ -28,18 +29,20 @@ const json = (body, status = 200, headers = {}) =>
  * (sent as JSON) or throws. Every requested URL is recorded in fetch.calls.
  */
 export function fakeFetch(routes) {
-  const fn = async (url) => {
+  const fn = async (url, init = {}) => {
     fn.calls.push(String(url));
+    fn.requests.push({ url: String(url), method: init.method || 'GET', headers: init.headers || {}, body: init.body ? JSON.parse(init.body) : null });
     for (const [match, handler] of routes) {
       const ok = match instanceof RegExp ? match.test(url) : String(url).includes(match);
       if (ok) {
-        const out = await handler(String(url));
+        const out = await handler(String(url), init);
         return out instanceof Response ? out : json(out);
       }
     }
     return json({ error: 'not found' }, 404);
   };
   fn.calls = [];
+  fn.requests = [];
   return fn;
 }
 fakeFetch.json = json;
@@ -64,14 +67,16 @@ export class FakeNotifier {
   }
 }
 
-export function makeEnv(configObj, { fetch, chatIds = ['111'], notifier } = {}) {
+export function makeEnv(configObj, { fetch, chatIds = ['111'], notifier, push = false, secrets: extra = {} } = {}) {
   const config = makeConfig(configObj);
   const store = new Store(config.dataPath);
-  const secrets = { botToken: 'TEST', chatIds, telegramApiBase: '' };
+  const secrets = { botToken: 'TEST', chatIds, telegramApiBase: '', ntfyTopic: '', ntfyServer: '', ntfyToken: '', ...extra };
   const ctx = createContext({ config, secrets, store, fetchImpl: fetch, version: 'test' });
   const n = notifier || new FakeNotifier();
-  const monitor = new Monitor(ctx, n);
-  return { config, store, ctx, notifier: n, monitor };
+  const p = push ? new PushNotifier(ctx) : null;
+  ctx.push = p;
+  const monitor = new Monitor(ctx, n, p);
+  return { config, store, ctx, notifier: n, push: p, monitor };
 }
 
 export { Notifier };
