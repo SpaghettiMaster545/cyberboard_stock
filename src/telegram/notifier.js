@@ -1,3 +1,5 @@
+import { isParseError, htmlToPlain } from './api.js';
+
 /**
  * Sends alerts to every configured chat. While muted or in quiet hours the
  * messages are still delivered, just with `disable_notification` (no sound).
@@ -22,15 +24,24 @@ export class Notifier {
     const quiet = silent || this.ctx.isSilentNow();
     const failures = [];
     for (const chatId of this.ctx.secrets.chatIds) {
+      const params = {
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+        disable_notification: quiet,
+        ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {})
+      };
       try {
-        await this.api.call('sendMessage', {
-          chat_id: chatId,
-          text,
-          parse_mode: 'HTML',
-          link_preview_options: { is_disabled: true },
-          disable_notification: quiet,
-          ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {})
-        });
+        try {
+          await this.api.call('sendMessage', params);
+        } catch (err) {
+          if (!isParseError(err)) throw err;
+          // A stock alert must arrive even if a product name broke the markup.
+          console.error(`Telegram rejected HTML, sending plain text instead: ${err.description}`);
+          const { parse_mode, ...plain } = params;
+          await this.api.call('sendMessage', { ...plain, text: htmlToPlain(text) });
+        }
       } catch (err) {
         failures.push(`chat ${chatId}: ${err.message}`);
       }

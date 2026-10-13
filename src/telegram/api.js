@@ -67,6 +67,20 @@ export class TelegramApi {
   }
 }
 
+export function isParseError(err) {
+  return err instanceof TelegramError && /can't parse entities/i.test(err.description);
+}
+
+/** Telegram HTML -> plain text, for the fallback when Telegram rejects our markup. */
+export function htmlToPlain(text) {
+  return String(text)
+    .replace(/<\/?(b|strong|i|em|u|ins|s|strike|del|a|code|pre|tg-spoiler|span|blockquote|tg-emoji)(\s[^<>]*)?>/gi, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
+}
+
 export function isNotModified(err) {
   return err instanceof TelegramError && /message is not modified/i.test(err.description);
 }

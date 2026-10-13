@@ -257,3 +257,18 @@ test('/push: enable, send a test, per-watch toggle, new topic', async () => {
   const settings = await tg.waitFor((c) => c.method === 'editMessageText', { from });
   assert.ok(settings.params.reply_markup.inline_keyboard.flat().some((b) => b.callback_data === 'push' && /wł\./.test(b.text)));
 });
+
+test('every message the bot produced was valid Telegram HTML', () => {
+  assert.deepEqual(tg.invalid, []);
+});
+
+test('if Telegram rejects the markup, the reply still arrives as plain text', async () => {
+  const from = tg.calls.length;
+  await bot.send(CHAT, { text: 'Czas: <1 s & <b>ok</b>', keyboard: [[{ text: 'Menu', callback_data: 'menu' }]] });
+  const calls = tg.calls.slice(from).filter(sendTo(CHAT));
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].params.parse_mode, undefined);
+  assert.equal(calls[1].params.text, 'Czas: <1 s & ok');
+  assert.ok(calls[1].params.reply_markup, 'buttons are kept');
+  tg.invalid.length = 0; // provoked on purpose
+});

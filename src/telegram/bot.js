@@ -4,7 +4,7 @@ import { normalizeWatch, NOTIFY_TYPES } from '../config.js';
 import { detectWatch, scopeFingerprint, DetectError } from '../sources/index.js';
 import { newTopic } from '../push.js';
 import { esc, slugify, formatDuration } from '../util.js';
-import { isNotModified } from './api.js';
+import { isNotModified, isParseError, htmlToPlain } from './api.js';
 import {
   mainMenu,
   stockView,
@@ -138,13 +138,22 @@ export class TelegramBot {
   // ---------------------------------------------------------------- output
 
   async send(chatId, view) {
-    return this.api.call('sendMessage', {
+    const params = {
       chat_id: chatId,
       text: view.text,
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
       ...(view.keyboard ? { reply_markup: { inline_keyboard: view.keyboard } } : {})
-    });
+    };
+    try {
+      return await this.api.call('sendMessage', params);
+    } catch (err) {
+      if (!isParseError(err)) throw err;
+      // Never leave a button press unanswered because of a markup slip.
+      console.error(`Telegram rejected HTML, sending plain text instead: ${err.description}`);
+      const { parse_mode, ...plain } = params;
+      return this.api.call('sendMessage', { ...plain, text: htmlToPlain(view.text) });
+    }
   }
 
   async edit(chatId, messageId, view) {
@@ -159,7 +168,8 @@ export class TelegramBot {
       });
     } catch (err) {
       if (isNotModified(err)) return;
-      // Too old to edit, deleted, etc. - just send a fresh message.
+      // Too old to edit, deleted, bad markup, etc. - send a fresh message
+      // (send() itself falls back to plain text if the markup is the problem).
       await this.send(chatId, view);
     }
   }

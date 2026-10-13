@@ -9,6 +9,19 @@ import { Notifier } from '../../src/telegram/notifier.js';
 import { Monitor } from '../../src/monitor.js';
 import { PushNotifier } from '../../src/push.js';
 
+const TG_TAG = /^<\/?(b|strong|i|em|u|ins|s|strike|del|a|code|pre|tg-spoiler|span|blockquote|tg-emoji)(\s[^<>]*)?>/;
+const TG_ENTITY = /^&(lt|gt|amp|quot|#\d+|#x[0-9a-f]+);/i;
+
+/** Mimic Telegram's HTML parse mode: unknown tags or a bare "<" / "&" are rejected. */
+export function telegramHtmlError(text) {
+  for (let i = 0; i < text.length; i++) {
+    const rest = text.slice(i);
+    if (text[i] === '<' && !TG_TAG.test(rest)) return `can't parse entities: Unsupported start tag at byte offset ${i}`;
+    if (text[i] === '&' && !TG_ENTITY.test(rest)) return `can't parse entities: bad entity at byte offset ${i}`;
+  }
+  return null;
+}
+
 export function tempDir() {
   return mkdtempSync(join(tmpdir(), 'stockbot-test-'));
 }
@@ -55,6 +68,8 @@ export class FakeNotifier {
   }
   async broadcast(text, opts = {}) {
     if (this.fail) throw new Error('telegram down');
+    const htmlError = telegramHtmlError(text);
+    if (htmlError) throw new Error(`invalid Telegram HTML: ${htmlError}\n${text}`);
     this.sent.push({ text, ...opts });
   }
   async notifySafely(text, opts) {
@@ -87,6 +102,7 @@ export { Notifier };
  */
 export async function startFakeTelegram() {
   const calls = [];
+  const invalid = [];
   const queue = [];
   let waiters = [];
   let nextUpdateId = 1;
@@ -103,6 +119,12 @@ export async function startFakeTelegram() {
         res.end(JSON.stringify({ ok: true, result }));
       };
       if (method !== 'getUpdates') calls.push({ method, params });
+      const htmlError = params.parse_mode === 'HTML' && typeof params.text === 'string' && telegramHtmlError(params.text);
+      if (htmlError) {
+        invalid.push({ method, text: params.text, error: htmlError });
+        res.writeHead(400, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, error_code: 400, description: `Bad Request: ${htmlError}` }));
+      }
       switch (method) {
         case 'getMe':
           return reply({ id: 42, is_bot: true, username: 'test_stock_bot' });
@@ -136,6 +158,7 @@ export async function startFakeTelegram() {
   return {
     base,
     calls,
+    invalid,
     pushUpdate(update) {
       const u = { update_id: nextUpdateId++, ...update };
       queue.push(u);

@@ -59,3 +59,10 @@ test('short variants are kept even when the title contains them', () => {
   assert.equal(itemLine({ title: 'Keyboard Red Edition', variant: 'Red' }, 'en'), 'Keyboard Red Edition — Red');
   assert.equal(itemLine({ title: 'AM HATSU', variant: 'AM HATSU' }, 'en'), 'AM HATSU');
 });
+
+test('durations never contain characters that break Telegram HTML', async () => {
+  const { formatDuration } = await import('../src/util.js');
+  assert.equal(formatDuration(400, 'pl'), '0,4 s');
+  assert.equal(formatDuration(5, 'en'), '0.1s');
+  assert.equal(formatDuration(125000, 'pl'), '2 min 5 s');
+});

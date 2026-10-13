@@ -102,7 +102,11 @@ export async function httpGet(
 
 export function formatDuration(ms, lang = 'en') {
   if (ms == null || !Number.isFinite(ms)) return '?';
-  if (ms < 1000) return lang === 'pl' ? '<1 s' : '<1s';
+  // Sub-second values as "0,4 s" - no "<" sign, which Telegram's HTML mode would reject.
+  if (ms < 1000) {
+    const tenths = (Math.max(ms, 100) / 1000).toFixed(1);
+    return lang === 'pl' ? `${tenths.replace('.', ',')} s` : `${tenths}s`;
+  }
   const total = Math.floor(ms / 1000);
   const d = Math.floor(total / 86400);
   const h = Math.floor((total % 86400) / 3600);
